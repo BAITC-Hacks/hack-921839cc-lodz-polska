@@ -1,9 +1,13 @@
 """FastAPI route for turning verified results into a shareable brief."""
 from fastapi import APIRouter
 
-from ..ai.schemas import AnalysisResponse, ScenarioSnapshot, StrictModel
+from ..ai.schemas import (
+    AnalysisResponse,
+    ExecutiveBrief,
+    ScenarioSnapshot,
+    StrictModel,
+)
 from .executive_brief import build_executive_brief
-from ..ai.schemas import ExecutiveBrief
 
 
 class ExecutiveBriefRequest(StrictModel):
