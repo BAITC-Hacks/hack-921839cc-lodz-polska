@@ -1,39 +1,35 @@
-# AI analyst and executive report
+# Meeting analysis
 
-This module explains completed simulation results. It does not implement an
-alternative simulation engine and does not calculate official scores.
+This package converts an existing transcript into an evidence-linked summary,
+decisions, action items, and open questions. Speech recognition and speaker
+diarization belong to the local ML pipeline; this package accepts their
+transcript output.
 
-## Input and output
+## Privacy and model boundary
 
-`ScenarioSnapshot` is the internal AI input shape. It contains computed
-scores, budget totals, selected decision summaries, district before/after
-scores, optional indicator/category values, and optional synergy labels. The
-simulation service remains the source of truth for all values and validation.
+Meeting audio and transcripts can contain sensitive information. The router
+requires an injected local JSON generator; there is no external cloud provider
+or cloud fallback. Connect it only to a self-hosted model/service on the
+approved on-premise network. Keep model loading and inference in the ML service.
 
-The proposed HTTP boundaries, subject to the backend owner's shared API
-contract, are:
+The generator interface is:
 
-- `POST /api/ai/analyze`: body `AnalysisRequest`; response `AnalysisResponse`.
-- `POST /api/report/executive-brief`: body contains a `ScenarioSnapshot` and
-  validated `AnalysisResponse`; response `ExecutiveBrief`.
+    local_generate_json(system_prompt: str, payload: dict) -> dict
 
-`create_ai_router()` and `create_report_router()` expose FastAPI routers.
-Mount them from the application entry point with `app.include_router(...)`
-after the backend owner confirms the shared contract. The repository currently
-has no application entry point, so they are not mounted automatically.
+Its output is validated as MeetingAnalysis. The prompt requires evidence
+segment IDs and represents missing people or deadlines as null. It does not
+invent assignments.
 
-## Model provider
+## Proposed endpoint
 
-Install the `openai` Python package and set `OPENAI_API_KEY` in the
-server environment. Never commit the key. `OPENAI_MODEL` is optional; it
-defaults to `gpt-6-astra`. `create_ai_router()` uses this provider by default;
-pass a `generate_json` callable to inject another configured provider.
+POST /api/meetings/analyze
 
-The provider uses the Responses API with a Pydantic structured output model.
-The prompt and input contain only the completed simulation result and optional
-analysis question. The model explains results; it never recalculates scores or
-policy effects.
+Request: AnalysisRequest with meeting ID, language (ru, kk, or ru_kk),
+and timestamped/speaker-labeled transcript segments.
 
-`build_executive_brief(scenario, analysis)` returns structured fields and
-Markdown suitable for a report preview or export. It carries engine numbers
-through verbatim.
+Response: MeetingAnalysis with summary, key points, decisions, action items,
+and open questions. Each extracted item includes transcript segment evidence.
+
+The repository has no application entry point or shared API contract yet.
+Mount create_ai_router(local_generate_json) only after aligning this proposed
+shape with docs/API_CONTRACT.md.
