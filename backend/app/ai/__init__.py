@@ -1,13 +1,12 @@
-"""AI analysis for deterministic city simulation results."""
+"""AI analysis interfaces for meeting transcripts."""
 
-from .openai_provider import create_openai_json_generator
-from .schemas import AnalysisRequest, AnalysisResponse, ScenarioSnapshot
-from .service import analyze_scenario
+from .schemas import AnalysisRequest, MeetingAnalysis, MeetingInput
+from .service import LocalJsonGenerator, analyze_meeting
 
 __all__ = [
-    "analyze_scenario",
-    "create_openai_json_generator",
     "AnalysisRequest",
-    "AnalysisResponse",
-    "ScenarioSnapshot",
+    "MeetingAnalysis",
+    "MeetingInput",
+    "LocalJsonGenerator",
+    "analyze_meeting",
 ]
