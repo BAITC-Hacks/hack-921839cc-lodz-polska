@@ -1,4 +1,8 @@
-"""FastAPI routes for AI analysis and advisory suggestions."""
+"""Standalone routes for isolated AI-module use.
+
+The production app must mount the simulation-owned AI bridge instead so that
+client-supplied decisions are recalculated before reaching these services.
+"""
 from fastapi import APIRouter, HTTPException
 
 from .openai_provider import (
@@ -24,7 +28,7 @@ def create_ai_router(
     generate_json: JsonGenerator | None = None,
     generate_advice_json: JsonGenerator | None = None,
 ) -> APIRouter:
-    """Create AI routes with injectable providers for local or test use."""
+    """Create standalone AI routes for isolated checks, not production mounting."""
     analysis_provider = generate_json or create_openai_json_generator()
     advice_provider = generate_advice_json or create_openai_advice_generator()
     router = APIRouter()
@@ -46,4 +50,3 @@ def create_ai_router(
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return router
-
