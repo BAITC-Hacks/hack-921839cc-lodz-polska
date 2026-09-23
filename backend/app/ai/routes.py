@@ -1,16 +1,18 @@
-"""FastAPI route factory for the on-premise meeting analysis service."""
+"""FastAPI routes for explaining completed simulation scenarios."""
 from fastapi import APIRouter
 
-from .schemas import AnalysisRequest, MeetingAnalysis
-from .service import LocalJsonGenerator, analyze_meeting
+from .openai_provider import create_openai_json_generator
+from .schemas import AnalysisRequest, AnalysisResponse
+from .service import JsonGenerator, analyze_scenario
 
 
-def create_ai_router(local_generate_json: LocalJsonGenerator) -> APIRouter:
-    """Create routes using the application's configured local model adapter."""
+def create_ai_router(generate_json: JsonGenerator | None = None) -> APIRouter:
+    """Create the analyst router with an injected or default OpenAI adapter."""
+    provider = generate_json or create_openai_json_generator()
     router = APIRouter()
 
-    @router.post("/api/meetings/analyze", response_model=MeetingAnalysis)
-    def analyze(request: AnalysisRequest) -> MeetingAnalysis:
-        return analyze_meeting(request, local_generate_json)
+    @router.post("/api/ai/analyze", response_model=AnalysisResponse)
+    def analyze(request: AnalysisRequest) -> AnalysisResponse:
+        return analyze_scenario(request, provider)
 
     return router
