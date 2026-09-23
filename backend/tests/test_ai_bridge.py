@@ -111,7 +111,10 @@ def test_report_carries_verified_numbers(catalog, example, provider_reply):
         assert len(report["districts"]) == 5 and report["markdown"]
 
 
-def test_real_sdk_timeout_has_one_attempt_and_preserves_calculations(monkeypatch, catalog, example, caplog):
+@pytest.mark.parametrize("advice", [False, True])
+def test_real_sdk_timeout_has_one_attempt_and_preserves_calculations(
+    monkeypatch, catalog, example, caplog, advice
+):
     sdk = pytest.importorskip("openai", reason="Install requirements-ai.txt for the SDK boundary check")
     httpx = pytest.importorskip("httpx2")
     from app.main import configured_generator
@@ -127,9 +130,14 @@ def test_real_sdk_timeout_has_one_attempt_and_preserves_calculations(monkeypatch
     monkeypatch.setattr("app.main.load_dotenv", lambda *_args, **_kwargs: None)
     with httpx.Client(transport=httpx.MockTransport(timeout)) as transport:
         monkeypatch.setattr(sdk, "OpenAI", lambda **kwargs: sdk_client(http_client=transport, **kwargs))
-        with TestClient(create_app(catalog=catalog, ai_generator=configured_generator())) as client:
+        generator_field = "ai_advice_generator" if advice else "ai_generator"
+        with TestClient(
+            create_app(catalog=catalog, **{generator_field: configured_generator(advice=advice)})
+        ) as client:
             payload = {"decisions": [d.model_dump(by_alias=True) for d in example]}
-            response = client.post("/api/explain", json=payload)
+            response = client.post(
+                "/api/ai/advice" if advice else "/api/explain", json={"decisions": []} if advice else payload
+            )
             assert response.status_code == 503
             assert response.json()["code"] == "AI_UNAVAILABLE"
             assert "private-provider-detail" not in response.text + caplog.text

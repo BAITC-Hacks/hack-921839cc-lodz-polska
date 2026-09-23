@@ -16,6 +16,7 @@ Backend по умолчанию слушает `http://127.0.0.1:8000`. `/docs` 
 | POST | /api/scenario/finalize | ScenarioRequest | Simulation; ровно 5 допустимых решений |
 | POST | /api/recommend | ScenarioRequest | Recommendation; лучший вариант с одной заменой |
 | POST | /api/ai/analyze | {scenario: ScenarioSnapshot, question?: string} | AnalysisResponse с Finding/evidence (текущий frontend) |
+| POST | /api/ai/advice | {decisions: Decision[], question?: string} | Проверенные варианты отдельных добавлений, snake_case |
 | POST | /api/explain | {decisions: Decision[], question?: string} | Analysis; эквивалентный компактный запрос |
 | POST | /api/report/executive-brief | {decisions: Decision[], question?: string} | AI-owned ExecutiveBrief, snake_case |
 
@@ -71,11 +72,11 @@ type Simulation = {
 
 ## Ошибки
 
-Бизнес-ошибки simulate/finalize: **HTTP 200 + Simulation с validation.status=invalid**. Это соответствует текущему UI. Рекомендации и AI требуют допустимого полного набора: иначе HTTP 422 с `{message,code,errors,score:null}`.
+Бизнес-ошибки simulate/finalize: **HTTP 200 + Simulation с validation.status=invalid**. Это соответствует текущему UI. `/api/recommend`, AI-анализ и отчёт требуют допустимого полного набора. `/api/ai/advice` работает с допустимым неполным набором (0–4 решения). Нарушение этих условий: HTTP 422 с `{message,code,errors,score:null}`.
 
 Неверные типы, лишние поля, некорректный JSON: HTTP 422 с тем же ErrorResponse. Отсутствующий/ошибочный AI или report: HTTP 503 `{message,code:'AI_UNAVAILABLE',errors:[],score:null}`. Расчётные маршруты продолжают работать. Исключения провайдера и ключи не отправляются клиенту.
 
-Коды: DECISION_COUNT, DUPLICATE_MEASURE, CATEGORY_LIMIT, BUDGET_EXCEEDED, UNKNOWN_MEASURE, UNKNOWN_DISTRICT, DISTRICT_REQUIRED, DISTRICT_NOT_ALLOWED, INCOMPATIBLE_MEASURES, INVALID_REQUEST, INVALID_SCENARIO, AI_UNAVAILABLE. Сообщения бизнес-ошибок — на русском.
+Коды: DECISION_COUNT, DUPLICATE_MEASURE, CATEGORY_LIMIT, BUDGET_EXCEEDED, UNKNOWN_MEASURE, UNKNOWN_DISTRICT, DISTRICT_REQUIRED, DISTRICT_NOT_ALLOWED, INCOMPATIBLE_MEASURES, INVALID_REQUEST, INVALID_SCENARIO, NO_FEASIBLE_ADVICE, AI_INVALID_ADVICE, AI_UNAVAILABLE. Сообщения бизнес-ошибок — на русском.
 
 ## Вклады и рекомендации
 
@@ -93,17 +94,41 @@ type Recommendation = {
 
 При found=false decisions/result опущены; остальные дельты null. Найденный вариант повторно финализируется. Можно включать `NEXT_PUBLIC_ENABLE_RECOMMENDATIONS=true`.
 
+### Сравнение двух планов
+
+Отдельного маршрута `/api/compare` или AI-сравнения двух планов в этой версии нет. Для A и B вызвать `/api/scenario/finalize` с соответствующими решениями. Отображать сравнение только при `validation.status=valid` и `finalized=true` у обоих ответов; `modelVersion` и `dataChecksum` должны совпадать. Сравнивать готовые `after`, бюджет и критические показатели. Итоговый Score не пересчитывать в браузере.
+
+Ответ `/api/recommend` уже содержит финализированный `result` и серверные дельты относительно переданного плана. После изменения исходного плана этот ответ устаревает. Перед применением замены повторно передать весь предлагаемый набор в `/api/scenario/finalize`; учитывать `validation.status`, поскольку HTTP 200 сам по себе не означает допустимый сценарий. Сам API не сохраняет и не изменяет выбранный план.
+
 ## Интеграция AI
 
 Текущий фронтенд вызывает `{scenario: ScenarioSnapshot}` через `createAnalysisRequest()` из `frontend/lib/ai-contract.ts`. Backend извлекает **только measure_id/district_id из decisions**, заново валидирует и рассчитывает их, затем строит свой `ScenarioSnapshot` для AI. Присланные цены, названия, числовые поля, source, scenarioId и validation не используются как факты. Никакого доверия к клиентскому Score. Временная обратная совместимость: начальный вариант `{simulation: Simulation}` также принимается, но отвечает исходным упрощённым Analysis. Не передавайте обе обёртки одновременно.
 
 Существующие AI `AnalysisRequest`, `AnalysisResponse`, `analyze_scenario()` и `build_executive_brief()` используются через адаптер `app/api/simulation/ai_bridge.py`. AI-файлы не изменяются. Вход `ScenarioSnapshot` остаётся snake_case, включает district/category before/after, бюджет, критические показатели, синергии и Shapley-вклады. Публичные роутеры AI, принимающие клиентские факты, **не подключать дополнительно**: иначе появятся дублирующиеся пути и обход пересчёта.
 
-Выход для текущего `{scenario:...}`: `{strengths:Finding[],risks:Finding[],tradeoffs:Finding[],recommendations:string[],answer:string|null}`, где `Finding={text:string,evidence:string[]}`. Его принимает реальный `aiResponseSchema`, затем frontend сам нормализует формат. Для `/api/explain` и старой обёртки `{simulation:...}` возвращается `{source:'ai',summary,strengths:string[],risks:string[],tradeoffs:string[],recommendations:string[]}`. Шаблонный текст не выдаётся за AI. Фактическая работа провайдера требует объединённой AI-ветки, `requirements-ai.txt`, модели с доступом и ключа backend. `backend/.env` загружается без перезаписи переменных окружения.
+Выход для текущего `{scenario:...}`: `{strengths:Finding[],risks:Finding[],tradeoffs:Finding[],recommendations:string[],answer:string|null}`, где `Finding={text:string,evidence:string[]}`. Его принимает реальный `aiResponseSchema`, затем frontend сам нормализует формат. Для `/api/explain` и старой обёртки `{simulation:...}` возвращается `{source:'ai',summary,strengths:string[],risks:string[],tradeoffs:string[],recommendations:string[]}`. Шаблонный текст не выдаётся за AI. AI-модули из `feature/ai` @ `45c916985be227cd4116bdfac96e764466732888` включены в `feature/simulation` без изменения принадлежащих AI файлов. Для провайдера нужны `requirements-ai.txt`, модель с доступом и ключ backend. `backend/.env` загружается без перезаписи переменных окружения.
 
-Таймаут OpenAI SDK — **45 секунд**, автоматические повторы отключены. Это сетевой таймаут SDK, а не гарантия максимального времени генерации. Frontend допускает **60 секунд** для `/api/ai/analyze`, `/api/explain`, `/api/report/executive-brief`, включая чтение JSON; для расчётных запросов — **20 секунд**. При внешнем таймауте backend возвращает безопасный HTTP 503, frontend сохраняет числовые результаты и предлагает повторить анализ вручную. При обрыве на стороне браузера показывается сообщение с фактическим лимитом. Если используется reverse proxy, его таймаут для AI должен быть не короче 60 секунд. Изменения двух лимитов объединять вместе из `feature/simulation` и `feature/frontend`.
+Таймаут OpenAI SDK — **45 секунд**, автоматические повторы отключены. Это сетевой таймаут SDK, а не гарантия максимального времени генерации. Frontend допускает **60 секунд** для `/api/ai/analyze`, `/api/ai/advice`, `/api/explain`, `/api/report/executive-brief`, включая чтение JSON; для расчётных запросов — **20 секунд**. При внешнем таймауте backend возвращает безопасный HTTP 503, frontend сохраняет числовые результаты и предлагает повторить анализ вручную. При обрыве на стороне браузера показывается сообщение с фактическим лимитом. Если используется reverse proxy, его таймаут для AI должен быть не короче 60 секунд. Изменения двух лимитов объединять вместе из `feature/simulation` и `feature/frontend`.
 
 Отчёт получает решения и question; backend самостоятельно формирует и snapshot, и AI-анализ. Не принимаем от браузера числа отчёта. Формат ExecutiveBrief принадлежит AI-модулю, не фронтенд-схеме Simulation.
+
+### AI-совет для неполного плана
+
+`POST /api/ai/advice` принимает только `{decisions: Decision[], question?: string}`. Backend пересчитывает текущие показатели и остаток бюджета, исключает меры, которые невозможно добавить ни в один район, и передаёт AI сформированный `AdviceRequest`. Входной `AdviceRequest` из README участника AI — внутренний контракт модуля, а не публичный запрос браузера. Лишние поля бюджета/каталога/Score в публичном запросе отклоняются.
+
+```ts
+type AdviceResponse = {
+  priority: string;
+  reason: string;
+  suggestions: {measure_id: string; district_id: string | null}[]; // до 3
+  validation_mode: 'individual_additions';
+  base_scenario_id: string;
+};
+```
+
+Каждое предложение отдельно проверено как добавление к исходному набору: бюджет, направление, охват, повторы и несовместимости. Предложения — **альтернативы**, их совместная допустимость не обещается. `base_scenario_id` соответствует `scenarioId` исходного preview. При изменении плана сбросить старый совет; перед применением выбранного варианта отправить весь новый набор в `/api/simulate` и убедиться в `validation.status=valid`. Для пяти решений затем нужен finalize. Роут не меняет сценарий и не выполняет предложенные меры.
+
+Полный план, недопустимый исходный набор или отсутствие возможных добавлений дают HTTP 422. Предложение, нарушающее правила движка, даёт HTTP 502 `AI_INVALID_ADVICE` со списком ошибок. Недоступный провайдер, неверная структура/ID ответа модели или таймаут дают безопасный HTTP 503. Непроверенные предложения ни в одном случае не возвращаются как допустимые. Для замены в полном плане использовать `/api/recommend`.
 
 ## Контроль и воспроизводимость
 

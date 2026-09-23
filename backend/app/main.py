@@ -9,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.simulation.advice import create_advice_router
 from app.api.simulation.ai_bridge import Generator, create_ai_bridge
 from app.api.simulation.routes import create_router
 from app.models.schemas import ErrorResponse, Issue
@@ -17,7 +18,7 @@ from app.simulation.catalog import Catalog, load_catalog
 logger = logging.getLogger(__name__)
 
 
-def configured_generator() -> Generator | None:
+def configured_generator(*, advice: bool = False) -> Generator | None:
     load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
     if not os.getenv("OPENAI_API_KEY"):
         return None
@@ -26,7 +27,8 @@ def configured_generator() -> Generator | None:
         sdk = importlib.import_module("openai")
         # AI can legitimately need more than 15s, especially on the first schema request.
         # The frontend allows 60s for AI; keep SDK retries off to avoid multiplying waits.
-        return provider.create_openai_json_generator(client=sdk.OpenAI(timeout=45.0, max_retries=0))
+        factory = provider.create_openai_advice_generator if advice else provider.create_openai_json_generator
+        return factory(client=sdk.OpenAI(timeout=45.0, max_retries=0))
     except Exception as exc:
         logger.warning("AI module unavailable (%s); simulation remains active", type(exc).__name__)
         return None
@@ -36,6 +38,7 @@ def create_app(
     *,
     catalog: Catalog | None = None,
     ai_generator: Generator | None = None,
+    ai_advice_generator: Generator | None = None,
     cors_origins: list[str] | None = None,
 ) -> FastAPI:
     catalog = catalog or load_catalog()
@@ -87,7 +90,8 @@ def create_app(
 
     application.include_router(create_router(catalog))
     application.include_router(create_ai_bridge(catalog, ai_generator))
+    application.include_router(create_advice_router(catalog, ai_advice_generator))
     return application
 
 
-app = create_app(ai_generator=configured_generator())
+app = create_app(ai_generator=configured_generator(), ai_advice_generator=configured_generator(advice=True))

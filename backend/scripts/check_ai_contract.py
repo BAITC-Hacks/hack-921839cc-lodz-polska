@@ -18,6 +18,8 @@ else:
         raise SystemExit("AI module is not merged. Pass --ai-root /path/to/checkout/backend/app.")
 raise SystemExit(
     subprocess.call(
-        [sys.executable, "-m", "pytest", "-q", "tests/test_ai_bridge.py"], cwd=ROOT / "backend", env=env
+        [sys.executable, "-m", "pytest", "-q", "tests/test_ai_bridge.py", "tests/test_advice.py"],
+        cwd=ROOT / "backend",
+        env=env,
     )
 )

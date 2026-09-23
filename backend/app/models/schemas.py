@@ -170,6 +170,23 @@ class ExplainRequest(ScenarioRequest):
     question: Annotated[StrictStr, Field(max_length=1000)] | None = None
 
 
+class AdviceSuggestionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    measure_id: Identifier
+    district_id: DistrictId | None
+
+
+class AdviceResponse(BaseModel):
+    """Keep the AI participant's snake_case response, with explicit validation context."""
+
+    model_config = ConfigDict(extra="forbid")
+    priority: str
+    reason: str
+    suggestions: list[AdviceSuggestionResponse] = Field(max_length=3)
+    validation_mode: Literal["individual_additions"] = "individual_additions"
+    base_scenario_id: str
+
+
 class Analysis(WireModel):
     source: Literal["ai"] = "ai"
     summary: str

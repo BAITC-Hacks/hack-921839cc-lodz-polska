@@ -383,10 +383,146 @@
           }
         }
       }
+    },
+    "/api/ai/advice": {
+      "post": {
+        "tags": [
+          "AI integration"
+        ],
+        "summary": "Advice",
+        "operationId": "advice_api_ai_advice_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdviceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AdviceResponse": {
+        "properties": {
+          "priority": {
+            "type": "string",
+            "title": "Priority"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/AdviceSuggestionResponse"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Suggestions"
+          },
+          "validation_mode": {
+            "type": "string",
+            "const": "individual_additions",
+            "title": "Validation Mode",
+            "default": "individual_additions"
+          },
+          "base_scenario_id": {
+            "type": "string",
+            "title": "Base Scenario Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "priority",
+          "reason",
+          "suggestions",
+          "base_scenario_id"
+        ],
+        "title": "AdviceResponse",
+        "description": "Keep the AI participant's snake_case response, with explicit validation context."
+      },
+      "AdviceSuggestionResponse": {
+        "properties": {
+          "measure_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Measure Id"
+          },
+          "district_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "esil",
+                  "almaty",
+                  "saryarka",
+                  "baikonur",
+                  "nura"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "measure_id",
+          "district_id"
+        ],
+        "title": "AdviceSuggestionResponse"
+      },
       "Analysis": {
         "properties": {
           "source": {
