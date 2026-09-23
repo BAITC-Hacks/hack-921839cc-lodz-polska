@@ -74,29 +74,32 @@ describe('API boundary', () => {
   });
 });
 describe('AI latency budget', () => {
-  it.each(['/api/ai/analyze', '/api/ai/compare', '/api/explain', '/api/report/executive-brief'])(
-    'accepts %s responses that take longer than the old 20s timeout',
-    async (path) => {
-      vi.useFakeTimers();
-      const fetch = vi.fn(
-        (_url, init) =>
-          new Promise<Response>((resolve, reject) => {
-            setTimeout(() => resolve(new Response('{"ok":true}')), 25000);
-            init.signal.addEventListener('abort', () =>
-              reject(new DOMException('Aborted', 'AbortError')),
-            );
-          }),
-      );
-      vi.stubGlobal('fetch', fetch);
-      const promise = request(path, z.object({ ok: z.boolean() }), {});
-      const check = expect(promise).resolves.toEqual({ ok: true });
-      await vi.advanceTimersByTimeAsync(25000);
-      await check;
-      expect(fetch.mock.calls[0][1].signal.aborted).toBe(false);
-      expect(fetch).toHaveBeenCalledTimes(1);
-      expect(vi.getTimerCount()).toBe(0);
-    },
-  );
+  it.each([
+    '/api/ai/analyze',
+    '/api/ai/advice',
+    '/api/ai/compare',
+    '/api/explain',
+    '/api/report/executive-brief',
+  ])('accepts %s responses that take longer than the old 20s timeout', async (path) => {
+    vi.useFakeTimers();
+    const fetch = vi.fn(
+      (_url, init) =>
+        new Promise<Response>((resolve, reject) => {
+          setTimeout(() => resolve(new Response('{"ok":true}')), 25000);
+          init.signal.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          );
+        }),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const promise = request(path, z.object({ ok: z.boolean() }), {});
+    const check = expect(promise).resolves.toEqual({ ok: true });
+    await vi.advanceTimersByTimeAsync(25000);
+    await check;
+    expect(fetch.mock.calls[0][1].signal.aborted).toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it('aborts a hanging AI request at 60s without retrying', async () => {
     vi.useFakeTimers();
     const fetch = vi.fn(

@@ -41,6 +41,7 @@ export async function request<T>(path: string, schema: z.ZodType<T>, body?: unkn
   // AI generation has a 45s server timeout; leave time for transport and JSON validation.
   const isAiRequest = [
     '/api/ai/analyze',
+    '/api/ai/advice',
     '/api/ai/compare',
     '/api/explain',
     '/api/report/executive-brief',
