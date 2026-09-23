@@ -34,6 +34,16 @@ The prompt and input contain only the completed simulation result and optional
 analysis question. The model explains results; it never recalculates scores or
 policy effects.
 
+## Examples
+
+- examples/analysis_request.json shows the precomputed scenario sent to the AI.
+- examples/analysis_response.json shows the expected structured analysis.
+
+These are illustrative demo values from the project plan, not a live model
+response or a new simulation run. Replace them with the simulation engine's
+actual response when the shared API contract is ready.
+
 build_executive_brief(scenario, analysis) returns structured fields and
-Markdown suitable for a report preview or export. It carries engine numbers
-through verbatim.
+Markdown suitable for a report preview or export. The report includes overall
+score, budget, district comparison, selected decisions, AI findings, synergies,
+and recommendations. It carries engine numbers through verbatim.
