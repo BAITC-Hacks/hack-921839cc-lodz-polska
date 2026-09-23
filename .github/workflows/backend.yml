@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      AKIM_FRONTEND_REQUEST: ${{ runner.temp }}/akim-ai-contract/request.json
+      AKIM_FRONTEND_REQUEST: ${{ github.workspace }}/../akim-ai-contract/request.json
       NEXT_PUBLIC_API_MODE: mock
       NEXT_PUBLIC_ENABLE_AI_COMPARISON: "false"
     steps:
