@@ -69,7 +69,7 @@ class AnalysisRequest(StrictModel):
 
 class Finding(StrictModel):
     text: str
-    evidence: list[str] = Field(default_factory=list)
+    evidence: list[str]
 
 
 class AnalysisResponse(StrictModel):
@@ -77,7 +77,8 @@ class AnalysisResponse(StrictModel):
     risks: list[Finding]
     tradeoffs: list[Finding]
     recommendations: list[str]
-    answer: str | None = None
+    # Required-but-nullable so the model always returns the structured key.
+    answer: str | None = Field(...)
 
 
 class ExecutiveBrief(StrictModel):
