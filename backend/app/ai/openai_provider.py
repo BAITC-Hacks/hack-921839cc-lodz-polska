@@ -1,10 +1,36 @@
 """OpenAI Responses API adapter for schema-constrained city analysis."""
 import json
 import os
+from pathlib import Path
 from typing import Any
 
 from .schemas import AnalysisResponse
 from .service import JsonGenerator
+
+
+def _load_local_backend_env() -> None:
+    """Load simple KEY=VALUE entries from backend/.env without overriding env."""
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    try:
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return
+
+    for line in lines:
+        item = line.strip()
+        if not item or item.startswith("#"):
+            continue
+        if item.startswith("export "):
+            item = item[7:].lstrip()
+        if "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        if key:
+            os.environ.setdefault(key, value)
 
 
 def create_openai_json_generator(
@@ -13,10 +39,11 @@ def create_openai_json_generator(
 ) -> JsonGenerator:
     """Return a lazy provider adapter using the OpenAI Python SDK.
 
-    Set OPENAI_API_KEY in the process environment. OPENAI_MODEL can override
-    the default model. Client creation is deferred until the first request so
-    importing or mounting the router does not require credentials.
+    Reads backend/.env if present. Environment variables already set by the
+    host take precedence. Keep the local file out of Git; client creation is
+    deferred until the first analysis request.
     """
+    _load_local_backend_env()
     selected_model = model or os.getenv("OPENAI_MODEL", "gpt-6-astra")
     active_client = client
 
