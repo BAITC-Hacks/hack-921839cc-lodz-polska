@@ -1,7 +1,4 @@
 """FastAPI routes for explaining completed simulation scenarios."""
-from collections.abc import Callable
-from typing import Any
-
 from fastapi import APIRouter
 
 from .schemas import AnalysisRequest, AnalysisResponse
