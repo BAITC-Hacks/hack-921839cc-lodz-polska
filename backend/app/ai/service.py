@@ -1,30 +1,26 @@
-"""Orchestration for AI analysis; scoring remains owned by the simulation engine."""
+"""Orchestrate structured analysis through an injected local model service."""
 from collections.abc import Callable
 from typing import Any
 
 from .prompts import SYSTEM_PROMPT
-from .schemas import AnalysisRequest, AnalysisResponse
+from .schemas import AnalysisRequest, MeetingAnalysis
 
 
-JsonGenerator = Callable[[str, dict[str, Any]], dict[str, Any]]
+LocalJsonGenerator = Callable[[str, dict[str, Any]], dict[str, Any]]
 
 
 def build_analysis_payload(request: AnalysisRequest) -> dict[str, Any]:
-    """Build the data-only payload passed to a model provider."""
-    return {
-        "scenario": request.scenario.dict(),
-        "question": request.question,
-    }
+    """Serialize transcript input for the configured on-premise model service."""
+    return {"meeting": request.meeting.dict()}
 
 
-def analyze_scenario(
+def analyze_meeting(
     request: AnalysisRequest,
-    generate_json: JsonGenerator,
-) -> AnalysisResponse:
-    """Ask an injected provider for schema-shaped analysis and validate it.
-
-    The provider adapter is injected so the application can select its configured
-    LLM client without coupling this module to credentials or a vendor SDK.
-    """
-    raw = generate_json(SYSTEM_PROMPT, build_analysis_payload(request))
-    return AnalysisResponse.parse_obj(raw)
+    local_generate_json: LocalJsonGenerator,
+) -> MeetingAnalysis:
+    """Generate and validate a protocol without sending data to a cloud provider."""
+    raw = local_generate_json(SYSTEM_PROMPT, build_analysis_payload(request))
+    analysis = MeetingAnalysis.parse_obj(raw)
+    if analysis.meeting_id != request.meeting.meeting_id:
+        raise ValueError("Model output meeting_id does not match the input.")
+    return analysis
