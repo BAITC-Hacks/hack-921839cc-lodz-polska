@@ -138,6 +138,34 @@ class AnalyzeRequest(WireModel):
     question: Annotated[StrictStr, Field(max_length=1000)] | None = None
 
 
+class SummaryDecisionInput(Decision):
+    # The AI owner's public input includes names/costs. Only IDs are authoritative input.
+    model_config = ConfigDict(**{**Decision.model_config, "extra": "ignore"})
+
+
+class ScenarioFactsInput(WireModel):
+    model_config = ConfigDict(**{**WireModel.model_config, "extra": "ignore"})
+    decisions: list[SummaryDecisionInput] = Field(max_length=100)
+
+
+class ScenarioAnalyzeRequest(WireModel):
+    scenario: ScenarioFactsInput
+    question: Annotated[StrictStr, Field(max_length=1000)] | None = None
+
+
+class FindingResponse(WireModel):
+    text: str
+    evidence: list[str]
+
+
+class StructuredAnalysis(WireModel):
+    strengths: list[FindingResponse]
+    risks: list[FindingResponse]
+    tradeoffs: list[FindingResponse]
+    recommendations: list[str]
+    answer: str | None
+
+
 class ExplainRequest(ScenarioRequest):
     question: Annotated[StrictStr, Field(max_length=1000)] | None = None
 

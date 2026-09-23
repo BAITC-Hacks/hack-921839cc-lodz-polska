@@ -1,6 +1,6 @@
 # AKIM AI API contract v1.0.0
 
-Согласован с `frontend/INTEGRATION.md` и `frontend/lib/types.ts` из `feature/frontend` (начальный контракт: commit `b093778cf5f5cbe78fd87beaecc6f0cb8ee7aaca`). Backend — единственный источник расчётных значений. JSON использует **camelCase**. ID района Есиль — **esil**. Все значения синтетические.
+Согласован с `frontend/INTEGRATION.md`, `frontend/lib/types.ts` и `frontend/lib/ai-contract.ts` из `feature/frontend` (проверенная версия `2412b1e16b10c892fa66b5eaeaf040c6795907e2`). Backend — единственный источник расчётных значений. Simulation JSON использует **camelCase**; текущий AI-адаптер фронтенда использует **snake_case**. ID района Есиль — **esil**. Все значения синтетические.
 
 ## Запуск и маршруты
 
@@ -15,7 +15,7 @@ Backend по умолчанию слушает `http://127.0.0.1:8000`. `/docs` 
 | POST | /api/simulate | ScenarioRequest | Simulation; preview от 0 до 5 решений |
 | POST | /api/scenario/finalize | ScenarioRequest | Simulation; ровно 5 допустимых решений |
 | POST | /api/recommend | ScenarioRequest | Recommendation; лучший вариант с одной заменой |
-| POST | /api/ai/analyze | {simulation: Simulation, question?: string} | Analysis для фронтенда |
+| POST | /api/ai/analyze | {scenario: ScenarioSnapshot, question?: string} | AnalysisResponse с Finding/evidence (текущий frontend) |
 | POST | /api/explain | {decisions: Decision[], question?: string} | Analysis; эквивалентный компактный запрос |
 | POST | /api/report/executive-brief | {decisions: Decision[], question?: string} | AI-owned ExecutiveBrief, snake_case |
 
@@ -95,11 +95,11 @@ type Recommendation = {
 
 ## Интеграция AI
 
-Фронтенд сохраняет вызов `{simulation: Simulation}`. Backend извлекает **только decisions**, заново валидирует и рассчитывает их, затем строит `ScenarioSnapshot` из `feature/ai`. Присланные числовые поля, source, scenarioId и validation не используются как факты. Никакого доверия к клиентскому Score.
+Текущий фронтенд вызывает `{scenario: ScenarioSnapshot}` через `createAnalysisRequest()` из `frontend/lib/ai-contract.ts`. Backend извлекает **только measure_id/district_id из decisions**, заново валидирует и рассчитывает их, затем строит свой `ScenarioSnapshot` для AI. Присланные цены, названия, числовые поля, source, scenarioId и validation не используются как факты. Никакого доверия к клиентскому Score. Временная обратная совместимость: начальный вариант `{simulation: Simulation}` также принимается, но отвечает исходным упрощённым Analysis. Не передавайте обе обёртки одновременно.
 
 Существующие AI `AnalysisRequest`, `AnalysisResponse`, `analyze_scenario()` и `build_executive_brief()` используются через адаптер `app/api/simulation/ai_bridge.py`. AI-файлы не изменяются. Вход `ScenarioSnapshot` остаётся snake_case, включает district/category before/after, бюджет, критические показатели, синергии и Shapley-вклады. Публичные роутеры AI, принимающие клиентские факты, **не подключать дополнительно**: иначе появятся дублирующиеся пути и обход пересчёта.
 
-Выход для фронтенда: `{source:'ai',summary,strengths:string[],risks:string[],tradeoffs:string[],recommendations:string[]}`. Finding.text преобразуется в строки; summary берётся из answer либо первого strength. Шаблонный текст не выдаётся за AI. Фактическая работа провайдера требует объединённой AI-ветки, установленного SDK, модели с доступом и ключа в окружении backend. Наличие подписки чата само по себе этого не обеспечивает.
+Выход для текущего `{scenario:...}`: `{strengths:Finding[],risks:Finding[],tradeoffs:Finding[],recommendations:string[],answer:string|null}`, где `Finding={text:string,evidence:string[]}`. Его принимает реальный `aiResponseSchema`, затем frontend сам нормализует формат. Для `/api/explain` и старой обёртки `{simulation:...}` возвращается `{source:'ai',summary,strengths:string[],risks:string[],tradeoffs:string[],recommendations:string[]}`. Шаблонный текст не выдаётся за AI. Фактическая работа провайдера требует объединённой AI-ветки, `requirements-ai.txt`, модели с доступом и ключа backend. `backend/.env` загружается без перезаписи переменных окружения. Таймаут SDK 15 секунд, автоматических повторов нет, чтобы укладываться в 20-секундный таймаут UI.
 
 Отчёт получает решения и question; backend самостоятельно формирует и snapshot, и AI-анализ. Не принимаем от браузера числа отчёта. Формат ExecutiveBrief принадлежит AI-модулю, не фронтенд-схеме Simulation.
 

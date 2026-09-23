@@ -1,7 +1,9 @@
 import importlib
 import logging
 import os
+from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,14 +18,15 @@ logger = logging.getLogger(__name__)
 
 
 def configured_generator() -> Generator | None:
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
     if not os.getenv("OPENAI_API_KEY"):
         return None
     try:
         provider = importlib.import_module("app.ai.openai_provider")
         sdk = importlib.import_module("openai")
         # The provider stays AI-owned; the integrator sets an explicit timeout/retry budget.
-        return provider.create_openai_json_generator(client=sdk.OpenAI(timeout=25.0, max_retries=0))
-    except (ImportError, AttributeError) as exc:
+        return provider.create_openai_json_generator(client=sdk.OpenAI(timeout=15.0, max_retries=0))
+    except Exception as exc:
         logger.warning("AI module unavailable (%s); simulation remains active", type(exc).__name__)
         return None
 

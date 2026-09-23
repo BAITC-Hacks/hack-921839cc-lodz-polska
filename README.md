@@ -50,13 +50,27 @@ NEXT_PUBLIC_ENABLE_RECOMMENDATIONS=true
 ```bash
 cd backend
 python -m pytest --cov=app --cov-report=term-missing
-python -m ruff check app tests scripts
-python -m ruff format --check app tests scripts
+python -m ruff check app/api/simulation app/models app/simulation app/main.py tests scripts
+python -m ruff format --check app/api/simulation app/models app/simulation app/main.py tests scripts
 cd ..
 python backend/scripts/export_fixtures.py
+node backend/scripts/check_frontend_contract.mjs
+python backend/scripts/check_ai_contract.py
 ```
 
+Последние две команды выполняются после объединения и установки соответствующих модулей. До объединения можно передать внешний frontend-каталог вторым аргументом Node-скрипта, AI — `--ai-root /путь/backend/app`. AI-тесты используют контролируемый ответ провайдера и не расходуют API-кредиты.
+
 Тесты проверяют точные контрольные числа, ограничения, отрицательные эффекты, задержки, синергии, значения 0/40/100, независимость от порядка, параллельные запросы, сохранение суммы вкладов и исчерпывающий поиск одной замены. Неверный набор никогда не получает официальный Score. AI-ошибка не ломает расчёт.
+
+## Подключение AI после объединения ветки участника №3
+
+Установите `python -m pip install -r backend/requirements-ai.txt`. Создайте локальный `backend/.env` по примеру AI-участника и задайте `OPENAI_API_KEY`, а также `OPENAI_MODEL`, доступную вашему API-проекту. Переменные процесса имеют приоритет над .env. Перезапустите сервер. В `/api/health` появится `aiConfigured=true`; это не проверка доступности провайдера. Настоящий AI-вызов выполняется только по запросу анализа/отчёта. Без настройки возвращается 503, без поддельного AI fallback.
+
+Текущий frontend отправляет `{scenario: ...}` и получает выводы с evidence. Backend заново рассчитывает decisions и передаёт AI только свои числа. Поддерживается и первоначальная обёртка `{simulation: ...}`. Подробности — в API-контракте.
+
+## Docker
+
+Для расчётного backend предусмотрена команда `docker compose up --build`. Порт доступен только локально: 127.0.0.1:8000. Образ работает от непривилегированного пользователя и не копирует .env. Docker-конфигурация не включает frontend и AI SDK; для полного AI-режима используйте запуск Python выше. Сборку Docker нужно проверить там, где установлен Docker: в среде разработки этой части он отсутствовал.
 
 ## Модель и архитектура
 

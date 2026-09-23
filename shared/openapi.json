@@ -228,7 +228,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AnalyzeRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AnalyzeRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ScenarioAnalyzeRequest"
+                  }
+                ],
+                "title": "Request"
               }
             }
           },
@@ -240,7 +248,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Analysis"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Analysis"
+                    },
+                    {
+                      "$ref": "#/components/schemas/StructuredAnalysis"
+                    }
+                  ],
+                  "title": "Response Analyze Api Ai Analyze Post"
                 }
               }
             }
@@ -714,6 +730,28 @@
         ],
         "title": "ExplainRequest"
       },
+      "FindingResponse": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "evidence"
+        ],
+        "title": "FindingResponse"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -924,6 +962,48 @@
         ],
         "title": "Recommendation"
       },
+      "ScenarioAnalyzeRequest": {
+        "properties": {
+          "scenario": {
+            "$ref": "#/components/schemas/ScenarioFactsInput"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scenario"
+        ],
+        "title": "ScenarioAnalyzeRequest"
+      },
+      "ScenarioFactsInput": {
+        "properties": {
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryDecisionInput"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Decisions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decisions"
+        ],
+        "title": "ScenarioFactsInput"
+      },
       "ScenarioRequest": {
         "properties": {
           "decisions": {
@@ -1131,6 +1211,87 @@
           "districts"
         ],
         "title": "Snapshot"
+      },
+      "StructuredAnalysis": {
+        "properties": {
+          "strengths": {
+            "items": {
+              "$ref": "#/components/schemas/FindingResponse"
+            },
+            "type": "array",
+            "title": "Strengths"
+          },
+          "risks": {
+            "items": {
+              "$ref": "#/components/schemas/FindingResponse"
+            },
+            "type": "array",
+            "title": "Risks"
+          },
+          "tradeoffs": {
+            "items": {
+              "$ref": "#/components/schemas/FindingResponse"
+            },
+            "type": "array",
+            "title": "Tradeoffs"
+          },
+          "recommendations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recommendations"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "strengths",
+          "risks",
+          "tradeoffs",
+          "recommendations",
+          "answer"
+        ],
+        "title": "StructuredAnalysis"
+      },
+      "SummaryDecisionInput": {
+        "properties": {
+          "measureId": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Measureid"
+          },
+          "districtId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Districtid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "measureId"
+        ],
+        "title": "SummaryDecisionInput"
       },
       "Synergy": {
         "properties": {

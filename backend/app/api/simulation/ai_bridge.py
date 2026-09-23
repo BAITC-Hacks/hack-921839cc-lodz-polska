@@ -13,7 +13,14 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from app.api.simulation.routes import invalid_response
-from app.models.schemas import Analysis, AnalyzeRequest, ErrorResponse, ExplainRequest
+from app.models.schemas import (
+    Analysis,
+    AnalyzeRequest,
+    ErrorResponse,
+    ExplainRequest,
+    ScenarioAnalyzeRequest,
+    StructuredAnalysis,
+)
 from app.simulation.catalog import Catalog
 from app.simulation.service import ai_snapshot, simulate
 
@@ -68,11 +75,16 @@ def create_ai_bridge(catalog: Catalog, generator: Generator | None) -> APIRouter
 
     @router.post(
         "/api/ai/analyze",
-        response_model=Analysis,
+        response_model=Analysis | StructuredAnalysis,
         responses={503: {"model": ErrorResponse}, 422: {"model": ErrorResponse}},
     )
-    def analyze(request: AnalyzeRequest):
+    def analyze(request: AnalyzeRequest | ScenarioAnalyzeRequest):
         # Ignore ALL supplied costs, scores, IDs of cached scenarios and validation flags.
+        if isinstance(request, ScenarioAnalyzeRequest):
+            outcome = run(request.scenario.decisions, request.question)
+            if isinstance(outcome, JSONResponse):
+                return outcome
+            return StructuredAnalysis.model_validate(outcome[1].model_dump())
         return response(request.simulation.decisions, request.question)
 
     @router.post(

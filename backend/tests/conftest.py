@@ -1,8 +1,15 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+
+import app
+
+# Optional independent checkout of the AI participant, for integration checks before merge.
+if os.getenv("AKIM_AI_REFERENCE"):
+    app.__path__.append(os.environ["AKIM_AI_REFERENCE"])
 
 from app.main import create_app
 from app.models.schemas import ScenarioRequest

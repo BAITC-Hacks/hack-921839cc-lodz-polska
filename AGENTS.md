@@ -20,4 +20,4 @@
 
 ## Проверки backend
 
-Из `backend/`: `python -m pip install -r requirements-dev.txt`, `python -m pytest --cov=app --cov-report=term-missing`, `python -m ruff check .`, `python -m ruff format --check .`. Из корня: `python backend/scripts/export_fixtures.py`. После объединения с AI: `python backend/scripts/check_ai_contract.py`. После объединения с frontend сверять реальные ответы его Zod-схемами. Проверки внешнего LLM без ключа не объявлять пройденными.
+Из `backend/`: `python -m pip install -r requirements-dev.txt`, `python -m pytest --cov=app --cov-report=term-missing`, `python -m ruff check app/api/simulation app/models app/simulation app/main.py tests scripts`, `python -m ruff format --check app/api/simulation app/models app/simulation app/main.py tests scripts`. Из корня: `python backend/scripts/export_fixtures.py`. После объединения с AI: `python backend/scripts/check_ai_contract.py`. После объединения с frontend: `node backend/scripts/check_frontend_contract.mjs`. Не форматировать чужие AI/frontend-файлы в backend-ветке. Проверки внешнего LLM без ключа не объявлять пройденными.
