@@ -87,6 +87,8 @@ class ExecutiveBrief(StrictModel):
     score_delta: float
     budget: BudgetSummary
     decisions: list[DecisionSummary]
+    districts: list[DistrictScoreChange]
+    synergies: list[str]
     major_improvements: list[Finding]
     remaining_risks: list[Finding]
     equity: list[Finding]
