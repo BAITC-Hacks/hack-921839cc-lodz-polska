@@ -31,7 +31,12 @@ export class ApiError extends Error {
 }
 export async function request<T>(path: string, schema: z.ZodType<T>, body?: unknown): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  // AI generation has a 45s server timeout; leave time for transport and JSON validation.
+  const isAiRequest = ['/api/ai/analyze', '/api/explain', '/api/report/executive-brief'].includes(
+    path,
+  );
+  const timeoutMs = isAiRequest ? 60000 : 20000;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${origin}${path}`, {
       method: body === undefined ? 'GET' : 'POST',
@@ -73,9 +78,13 @@ export async function request<T>(path: string, schema: z.ZodType<T>, body?: unkn
       );
     return parsed.data;
   } catch (error) {
+    if (controller.signal.aborted)
+      throw new ApiError(
+        isAiRequest
+          ? 'AI не ответил за 60 секунд. Расчётные результаты сохранены. Попробуйте ещё раз.'
+          : 'Сервер не ответил за 20 секунд. Попробуйте ещё раз.',
+      );
     if (error instanceof ApiError) throw error;
-    if (error instanceof Error && error.name === 'AbortError')
-      throw new ApiError('Сервер не ответил за 20 секунд. Попробуйте ещё раз.');
     throw new ApiError('Не удалось связаться с сервером. Проверьте подключение и адрес API.');
   } finally {
     clearTimeout(timeout);

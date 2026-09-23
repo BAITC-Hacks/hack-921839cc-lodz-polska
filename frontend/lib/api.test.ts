@@ -73,6 +73,88 @@ describe('API boundary', () => {
     await check;
   });
 });
+describe('AI latency budget', () => {
+  it.each(['/api/ai/analyze', '/api/explain', '/api/report/executive-brief'])(
+    'accepts %s responses that take longer than the old 20s timeout',
+    async (path) => {
+      vi.useFakeTimers();
+      const fetch = vi.fn(
+        (_url, init) =>
+          new Promise<Response>((resolve, reject) => {
+            setTimeout(() => resolve(new Response('{"ok":true}')), 25000);
+            init.signal.addEventListener('abort', () =>
+              reject(new DOMException('Aborted', 'AbortError')),
+            );
+          }),
+      );
+      vi.stubGlobal('fetch', fetch);
+      const promise = request(path, z.object({ ok: z.boolean() }), {});
+      const check = expect(promise).resolves.toEqual({ ok: true });
+      await vi.advanceTimersByTimeAsync(25000);
+      await check;
+      expect(fetch.mock.calls[0][1].signal.aborted).toBe(false);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
+  it('aborts a hanging AI request at 60s without retrying', async () => {
+    vi.useFakeTimers();
+    const fetch = vi.fn(
+      (_url, init) =>
+        new Promise((_resolve, reject) =>
+          init.signal.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          ),
+        ),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const check = expect(request('/api/ai/analyze', z.object({}), {})).rejects.toThrow(
+      'AI не ответил за 60 секунд. Расчётные результаты сохранены.',
+    );
+    await vi.advanceTimersByTimeAsync(59999);
+    expect(fetch.mock.calls[0][1].signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await check;
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it('reports a timeout while reading JSON as a timeout, not malformed JSON', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url, init) =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            new Promise((_resolve, reject) =>
+              init.signal.addEventListener('abort', () =>
+                reject(new DOMException('Aborted', 'AbortError')),
+              ),
+            ),
+        }),
+      ),
+    );
+    const check = expect(request('/api/ai/analyze', z.object({}), {})).rejects.toThrow('60 секунд');
+    await vi.advanceTimersByTimeAsync(60000);
+    await check;
+  });
+  it('preserves the backend error and clears its timer on AI 503', async () => {
+    vi.useFakeTimers();
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ message: 'AI недоступен. Расчётные результаты сохранены.' }), {
+        status: 503,
+      }),
+    );
+    vi.stubGlobal('fetch', fetch);
+    await expect(request('/api/ai/analyze', z.object({}), {})).rejects.toMatchObject({
+      status: 503,
+      message: 'AI недоступен. Расчётные результаты сохранены.',
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
 describe('honest UI fixtures', () => {
   it('recognizes the organizer example regardless of decision order', async () => {
     const reversed = [...exampleDecisions].reverse();
