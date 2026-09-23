@@ -24,15 +24,15 @@ application entry point, so they are not mounted automatically.
 
 ## Model provider
 
-Install the openai Python package and set OPENAI_API_KEY in the server
-environment. Never commit the key. OPENAI_MODEL is optional; it defaults to
-gpt-6-astra. create_ai_router() uses this provider by default; pass a
-generate_json callable to inject another configured provider.
+Copy backend/.env.example to backend/.env and set OPENAI_API_KEY there.
+The provider loads that local file when the router is created; host environment
+variables take precedence. backend/.env is ignored by Git. Never put the key
+in source code or commit it.
 
-The provider uses the Responses API with a Pydantic structured output model.
-The prompt and input contain only the completed simulation result and optional
-analysis question. The model explains results; it never recalculates scores or
-policy effects.
+OPENAI_MODEL is optional; it defaults to gpt-6-astra. The provider uses the
+Responses API with a Pydantic structured output model. The prompt and input
+contain only the completed simulation result and optional analysis question.
+The model explains results; it never recalculates scores or policy effects.
 
 ## Examples
 
