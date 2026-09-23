@@ -74,7 +74,7 @@ describe('API boundary', () => {
   });
 });
 describe('AI latency budget', () => {
-  it.each(['/api/ai/analyze', '/api/explain', '/api/report/executive-brief'])(
+  it.each(['/api/ai/analyze', '/api/ai/compare', '/api/explain', '/api/report/executive-brief'])(
     'accepts %s responses that take longer than the old 20s timeout',
     async (path) => {
       vi.useFakeTimers();

@@ -10,6 +10,52 @@ export const aiResponseSchema = z.object({
   recommendations: z.array(z.string()),
   answer: z.string().nullable().optional(),
 });
+// Proposed integration contract; enabled only after the backend implements it.
+export const comparisonResponseSchema = z.object({
+  originalScenarioId: z.string(),
+  alternativeScenarioId: z.string(),
+  modelVersion: z.string(),
+  dataChecksum: z.string(),
+  analysis: aiResponseSchema,
+});
+export function createComparisonRequest(original: Simulation, alternative: Simulation) {
+  for (const result of [original, alternative]) {
+    if (
+      result.source !== 'backend' ||
+      result.validation.status !== 'valid' ||
+      !result.after ||
+      result.decisions.length !== 5 ||
+      !result.scenarioId ||
+      !result.dataChecksum
+    ) {
+      throw new Error('Для сравнения нужны два подтверждённых сервером плана.');
+    }
+  }
+  if (
+    original.modelVersion !== alternative.modelVersion ||
+    original.dataChecksum !== alternative.dataChecksum
+  ) {
+    throw new Error('Планы рассчитаны на разных версиях данных. Пересчитайте их.');
+  }
+  return { originalDecisions: original.decisions, alternativeDecisions: alternative.decisions };
+}
+export function normalizeComparison(
+  response: z.infer<typeof comparisonResponseSchema>,
+  original: Simulation,
+  alternative: Simulation,
+) {
+  if (
+    response.originalScenarioId !== original.scenarioId ||
+    response.alternativeScenarioId !== alternative.scenarioId ||
+    response.modelVersion !== original.modelVersion ||
+    response.dataChecksum !== original.dataChecksum
+  ) {
+    throw new Error(
+      'AI-сравнение относится к другим планам или версии данных. Пересчитайте планы.',
+    );
+  }
+  return normalizeAnalysis(response.analysis);
+}
 export function createAnalysisRequest(result: Simulation, catalog: Measure[]) {
   if (!result.after || result.scoreDelta === null || result.validation.status !== 'valid') {
     throw new Error('Для AI-анализа нужен подтверждённый результат симуляции.');

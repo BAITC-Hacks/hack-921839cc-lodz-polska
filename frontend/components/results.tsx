@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   ArrowDownRight,
   ArrowRight,
@@ -24,14 +23,23 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
-import { api, isMock, recommendationsEnabled } from '@/lib/api';
+import { api, isMock } from '@/lib/api';
 import { indicatorLabels } from '@/lib/labels';
 import { saveScenario } from '@/lib/storage';
-import { indicatorIds, type Analysis, type Recommendation, type Simulation } from '@/lib/types';
+import { indicatorIds, type Analysis, type Simulation } from '@/lib/types';
 import { number } from '@/lib/utils';
 import { useScenario } from './provider';
 import { Button } from './ui/button';
-function AIAnalysis({ result }: { result: Simulation }) {
+import { RecommendationPanel } from './recommendation-panel';
+function AIAnalysis({
+  result,
+  original,
+  title = 'Разбор вашего плана',
+}: {
+  result: Simulation;
+  original?: Simulation;
+  title?: string;
+}) {
   const { measures } = useScenario();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState('');
@@ -46,8 +54,7 @@ function AIAnalysis({ result }: { result: Simulation }) {
         setAnalysis(null);
       }
     });
-    void api
-      .analyze(result, measures)
+    void (original ? api.comparePlans(original, result) : api.analyze(result, measures))
       .then((a) => {
         if (active) setAnalysis(a);
       })
@@ -60,7 +67,7 @@ function AIAnalysis({ result }: { result: Simulation }) {
     return () => {
       active = false;
     };
-  }, [result, attempt, measures]);
+  }, [result, original, attempt, measures]);
   return (
     <section className="panel ai-panel">
       <div className="section-heading">
@@ -68,7 +75,7 @@ function AIAnalysis({ result }: { result: Simulation }) {
           <span className="eyebrow">СМЫСЛ ЗА ЦИФРАМИ</span>
           <h2>
             <Sparkles size={21} />
-            Разбор вашего плана
+            {title}
           </h2>
         </div>
         <span className="quiet-badge">
@@ -145,14 +152,10 @@ function AIAnalysis({ result }: { result: Simulation }) {
   );
 }
 export function Results({ result }: { result: Simulation }) {
-  const router = useRouter();
-  const { measures, districts, change, busy } = useScenario();
+  const { measures, districts } = useScenario();
   const [districtId, setDistrictId] = useState(result.after?.weakestDistrictId ?? 'nura');
   const [name, setName] = useState('Мой план для Астаны');
   const [saveMessage, setSaveMessage] = useState('');
-  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
-  const [recommendError, setRecommendError] = useState('');
-  const [recommending, setRecommending] = useState(false);
   const after = result.after;
   if (!after) return null;
   const beforeDistrict = result.before.districts.find((d) => d.id === districtId)!;
@@ -173,17 +176,6 @@ export function Results({ result }: { result: Simulation }) {
         after: d.indicators[id],
       })),
   );
-  const recommend = async () => {
-    setRecommending(true);
-    setRecommendError('');
-    try {
-      setRecommendation(await api.recommend(result.decisions));
-    } catch (e) {
-      setRecommendError(e instanceof Error ? e.message : 'Поиск временно недоступен.');
-    } finally {
-      setRecommending(false);
-    }
-  };
   const download = () => {
     const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -488,50 +480,18 @@ export function Results({ result }: { result: Simulation }) {
         ))}
       </section>
       <AIAnalysis result={result} />
-      <section className="panel next-steps">
+      <RecommendationPanel
+        key={JSON.stringify(result)}
+        result={result}
+        renderAnalysis={(suggested) => (
+          <AIAnalysis result={suggested} title="Разбор предложенного плана" />
+        )}
+        renderComparison={(suggested) => (
+          <AIAnalysis result={suggested} original={result} title="Почему замена меняет результат" />
+        )}
+      />
+      <section className="panel result-save-section">
         <div>
-          <h2>Хороший план можно сделать лучше</h2>
-          <p>Поиск проверенной замены выполняется расчётным модулем.</p>
-          <Button
-            variant="secondary"
-            disabled={isMock || !recommendationsEnabled || recommending}
-            onClick={() => void recommend()}
-          >
-            {recommending ? (
-              <LoaderCircle className="spin" size={16} />
-            ) : (
-              <WandSparkles size={16} />
-            )}
-            Улучшить одной заменой
-          </Button>
-          {(isMock || !recommendationsEnabled) && (
-            <p className="muted small">Доступно после подключения и согласования /api/recommend.</p>
-          )}
-          {recommendError && <p role="alert">{recommendError}</p>}
-          {recommendation && (
-            <div className="recommendation">
-              <p>{recommendation.explanation}</p>
-              {recommendation.found && recommendation.result?.after && recommendation.decisions && (
-                <>
-                  <p>
-                    Лучший найденный вариант с одной заменой:{' '}
-                    {number(recommendation.result.after.score)} балла ·{' '}
-                    {recommendation.result.budget.spent} ед.
-                  </p>
-                  <Button
-                    disabled={busy}
-                    onClick={async () => {
-                      if (await change(recommendation.decisions!)) router.push('/simulator');
-                    }}
-                  >
-                    Применить проверенный вариант
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="save-panel">
           <h2>Сохраните свой сценарий</h2>
           <label className="field-label">
             Название плана

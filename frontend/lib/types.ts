@@ -66,6 +66,7 @@ export const snapshotSchema = z.object({
 });
 export const simulationSchema = z.object({
   modelVersion: z.string(),
+  dataChecksum: z.string().optional(),
   scenarioId: z.string().optional(),
   source: z.enum(['backend', 'fixture']),
   decisions: z.array(decisionSchema),
@@ -106,6 +107,11 @@ export const recommendationSchema = z.object({
   explanation: z.string(),
   decisions: z.array(decisionSchema).optional(),
   result: simulationSchema.optional(),
+  candidatesChecked: z.number().int().nonnegative(),
+  validCandidates: z.number().int().nonnegative(),
+  costDelta: z.number().nullable(),
+  scoreDelta: z.number().nullable(),
+  weakestScoreDelta: z.number().nullable(),
 });
 export type Recommendation = z.infer<typeof recommendationSchema>;
 export const savedScenarioSchema = z.object({

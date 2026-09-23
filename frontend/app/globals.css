@@ -1964,6 +1964,122 @@ select {
   background: var(--light);
   border-radius: 8px;
 }
+.replacement-panel {
+  margin-bottom: 24px;
+}
+.replacement-panel .section-heading > div {
+  min-width: 0;
+}
+.replacement-panel .section-heading .muted {
+  margin-top: 10px;
+}
+.replacement-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--light);
+  padding: 18px;
+  margin: 20px 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.replacement-status svg {
+  flex-shrink: 0;
+  color: var(--green);
+  margin-top: 3px;
+}
+.replacement-status p {
+  margin: 5px 0;
+}
+.replacement-decisions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  margin: 24px 0;
+}
+.replacement-decisions > div {
+  border: 1px solid var(--line);
+  padding: 20px;
+  border-radius: 12px;
+  align-self: stretch;
+}
+.replacement-decisions > div:last-child {
+  background: var(--light);
+}
+.replacement-decisions h3 {
+  font-size: 15px;
+  margin: 10px 0;
+  line-height: 1.5;
+}
+.replacement-decisions p {
+  font-size: 13px;
+}
+.replacement-table caption {
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 0 16px;
+}
+.replacement-table {
+  min-width: 620px;
+}
+.replacement-table tbody th {
+  font-weight: 500;
+  white-space: normal;
+}
+.replacement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0 14px;
+}
+.replacement-panel > .muted,
+.result-save-section p {
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 12px 0;
+}
+.replacement-analysis {
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  animation: reveal 0.35s ease both;
+}
+.replacement-analysis > p {
+  margin-bottom: 18px;
+}
+.replacement-analysis .ai-panel {
+  margin-bottom: 0;
+}
+.result-save-section .field-label {
+  max-width: 480px;
+}
+@media (max-width: 700px) {
+  .replacement-panel .section-heading {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+  }
+  .replacement-decisions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .replacement-decisions > svg {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+  .replacement-actions .button {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .replacement-analysis {
+    animation: none;
+  }
+}
 .saved-list {
   margin-bottom: 24px;
 }

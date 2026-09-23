@@ -17,8 +17,15 @@ import {
   measures,
 } from './fixtures';
 import { aiResponseSchema, createAnalysisRequest, normalizeAnalysis } from './ai-contract';
+import {
+  comparisonResponseSchema,
+  createComparisonRequest,
+  normalizeComparison,
+} from './ai-contract';
+import { checkedReplacement } from './recommendation';
 export const isMock = process.env.NEXT_PUBLIC_API_MODE !== 'live';
-export const recommendationsEnabled = process.env.NEXT_PUBLIC_ENABLE_RECOMMENDATIONS === 'true';
+export const recommendationsEnabled = process.env.NEXT_PUBLIC_ENABLE_RECOMMENDATIONS !== 'false';
+export const aiComparisonEnabled = process.env.NEXT_PUBLIC_ENABLE_AI_COMPARISON === 'true';
 const origin = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 export class ApiError extends Error {
   constructor(
@@ -32,9 +39,12 @@ export class ApiError extends Error {
 export async function request<T>(path: string, schema: z.ZodType<T>, body?: unknown): Promise<T> {
   const controller = new AbortController();
   // AI generation has a 45s server timeout; leave time for transport and JSON validation.
-  const isAiRequest = ['/api/ai/analyze', '/api/explain', '/api/report/executive-brief'].includes(
-    path,
-  );
+  const isAiRequest = [
+    '/api/ai/analyze',
+    '/api/ai/compare',
+    '/api/explain',
+    '/api/report/executive-brief',
+  ].includes(path);
   const timeoutMs = isAiRequest ? 60000 : 20000;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -145,9 +155,22 @@ export const api = {
     await delay();
     return structuredClone(exampleAnalysis);
   },
-  async recommend(decisions: Decision[]) {
+  async comparePlans(original: Simulation, alternative: Simulation) {
+    if (isMock || !aiComparisonEnabled)
+      throw new ApiError('Совместный AI-разбор двух планов ещё не подключён.');
+    const response = await request(
+      '/api/ai/compare',
+      comparisonResponseSchema,
+      createComparisonRequest(original, alternative),
+    );
+    return normalizeComparison(response, original, alternative);
+  },
+  async recommend(original: Simulation) {
     if (isMock || !recommendationsEnabled)
       throw new ApiError('Поиск замены станет доступен после подключения расчётного API.');
-    return request('/api/recommend', recommendationSchema, { decisions });
+    const recommendation = await request('/api/recommend', recommendationSchema, {
+      decisions: original.decisions,
+    });
+    return { recommendation, replacement: checkedReplacement(original, recommendation) };
   },
 };
