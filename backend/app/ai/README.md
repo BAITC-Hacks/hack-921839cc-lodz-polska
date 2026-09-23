@@ -1,50 +1,40 @@
 # AI analyst and executive report
 
-This module explains completed simulation results and suggests possible next
-measures. It does not implement an alternative simulation engine and does not
-calculate official scores.
+This package explains and summarizes results calculated by the deterministic simulation engine. It does not calculate scores, budgets, indicator changes, or policy validity.
 
-## Input and output
+## Production integration
 
-ScenarioSnapshot is the internal AI input shape. It contains computed scores,
-budget totals, selected decision summaries, district before/after scores,
-optional indicator/category values, and optional synergy labels. The
-simulation service remains the source of truth for all values and validation.
+The production API is mounted by `app.api.simulation.ai_bridge` from `app.main`. That adapter is owned by the backend/integration role. It re-validates submitted decisions, recalculates the scenario with the simulation engine, and only then passes the engine-generated `ScenarioSnapshot` to this package.
 
-The HTTP routes are:
+The public routes in the shared API contract are:
 
-- POST /api/ai/analyze: body AnalysisRequest; response AnalysisResponse.
-- POST /api/ai/advice: body AdviceRequest; response AdviceResponse.
-- POST /api/report/executive-brief: body contains a ScenarioSnapshot and
-  validated AnalysisResponse; response ExecutiveBrief.
+- `POST /api/ai/analyze`: the frontend sends scenario decisions; the adapter rebuilds the trusted snapshot and returns structured findings with evidence.
+- `POST /api/explain`: accepts decisions and an optional question; the adapter rebuilds the snapshot and returns a concise analysis.
+- `POST /api/report/executive-brief`: accepts decisions and an optional question; the adapter rebuilds the snapshot, runs analysis, and returns `ExecutiveBrief` fields plus Markdown.
 
-The City Council advice endpoint returns only suggested measure and district
-IDs drawn from the candidate set. District selection and measure combination
-validity must still be checked by the deterministic backend validator.
+Do not mount `create_ai_router()` or `create_report_router()` alongside the production adapter. The standalone routers accept AI input models directly and are for isolated module checks only; mounting both creates duplicate routes and can bypass the backend's source-of-truth recalculation.
 
-## Model provider
+## City Council advice
 
-The provider reads backend/.env when the AI router is created; host environment
-variables take precedence. backend/.env is ignored by Git. Never put the key
-in source code or commit it.
+`advise_scenario()` accepts an `AdviceRequest` and returns up to three measure/district suggestions. It checks that suggested IDs exist in the candidate set supplied to it, are not already selected, and match city/district scope.
 
-OPENAI_MODEL is optional; it defaults to gpt-6-astra. The provider uses the
-Responses API with Pydantic structured output. Analysis and advice prompts
-contain only supplied scenario facts and candidate data. The model explains
-results and suggests options; it never recalculates scores or policy effects.
+The advice service does not decide whether a suggested plan is valid. Before presenting or applying a suggestion, the backend adapter must build the request from trusted catalog/current-state data and run the suggested decisions through the simulation validator. Never accept candidate facts or scores from the browser as authoritative. The current shared API contract does not expose `/api/ai/advice`; the integrator must add and document that route before the frontend can call it.
 
-## Examples
+## Data and model boundaries
 
-- examples/analysis_request.json shows a precomputed scenario sent to the AI.
-- examples/analysis_response.json shows the expected structured analysis.
-- examples/advice_request.json shows the current-state/candidate contract for
-  the City Council endpoint.
+`ScenarioSnapshot` contains engine-computed scores, budget totals, decisions, district before/after values, optional category/indicator facts, critical-indicator counts, and synergies. Prompts treat user text and JSON values as untrusted input. The model may explain supplied facts and suggest next steps, but must not invent or recompute numerical outcomes.
 
-The analysis fixtures are illustrative demo values from the project plan, not
-a new simulation run. Replace them with the simulation engine's actual response
-when the shared API contract is ready.
+The executive brief is a structured JSON response with a Markdown body for preview/export. This package does not generate PDF or DOCX files.
 
-build_executive_brief(scenario, analysis) returns structured fields and
-Markdown suitable for a report preview or export. The report carries engine
-numbers through verbatim.
+## Provider configuration
 
+The OpenAI provider reads `backend/.env` when configured; process environment variables take precedence. Keep the API key only in local `backend/.env`, which must remain untracked. Never place keys in source code, `.env.example`, fixtures, or commit history.
+
+`OPENAI_MODEL` is optional and defaults to `gpt-6-astra`. Install AI dependencies with `pip install -r backend/requirements-ai.txt` (from the repository root) or follow the backend setup instructions.
+
+## Examples and checks
+
+- `examples/analysis_request.json` and `examples/analysis_response.json` show the internal analysis contract.
+- `examples/advice_request.json` shows the internal advice/candidate contract.
+- Fixtures are synthetic and illustrative; production values must come from the simulation engine.
+- Run `python backend/scripts/check_ai_contract.py` after the AI package and backend adapter are in the same checkout. The script accepts `--ai-root` for a separate AI checkout.
