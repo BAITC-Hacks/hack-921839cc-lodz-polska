@@ -14,62 +14,90 @@
 
 ## Endpoints
 
-| Метод | Путь | Request | Response |
-| --- | --- | --- | --- |
-| GET | /api/districts | — | District[5], массив без обёртки |
-| GET | /api/measures | — | Measure[14], массив без обёртки |
-| POST | /api/simulate | `{decisions: Decision[]}` | Simulation; 0–5 решений для preview |
-| POST | /api/scenario/finalize | `{decisions: Decision[]}` | Simulation; ровно 5 валидных решений |
-| POST | /api/ai/analyze | `{simulation: Simulation}` | Analysis |
-| POST | /api/recommend | `{decisions: Decision[]}` | Recommendation; опционально, по умолчанию выключен |
+| Метод | Путь                   | Request                    | Response                                           |
+| ----- | ---------------------- | -------------------------- | -------------------------------------------------- |
+| GET   | /api/districts         | —                          | District[5], массив без обёртки                    |
+| GET   | /api/measures          | —                          | Measure[14], массив без обёртки                    |
+| POST  | /api/simulate          | `{decisions: Decision[]}`  | Simulation; 0–5 решений для preview                |
+| POST  | /api/scenario/finalize | `{decisions: Decision[]}`  | Simulation; ровно 5 валидных решений               |
+| POST  | /api/ai/analyze        | `{scenario: ScenarioSnapshot}` | AnalysisResponse из feature/ai (см. ниже)       |
+| POST  | /api/recommend         | `{decisions: Decision[]}`  | Recommendation; опционально, по умолчанию выключен |
 
-Для AI: переданный объект не является доверенным расчётом — сервер должен использовать scenarioId для получения сохранённого результата или заново пересчитать decisions. Если AI-разработчик выберет вход по scenarioId/decisions, заменим одну функцию api.analyze после согласования.
+Для AI: схема адаптирована к `feature/ai` @ `03cd8a0`, `backend/app/ai/schemas.py`. См. `lib/ai-contract.ts`: request `{scenario: {score_before, score_after, score_delta, budget: {initial,spent,remaining}, decisions: [{measure_id,name,category,scope,cost,district_id,district_name,contribution}], districts: [{district_id,district_name,before_score,after_score,indicators_before,indicators_after}], category_scores: [], critical_indicators_before, critical_indicators_after, synergies}}`. Ответ: `{strengths: [{text,evidence}], risks: [{text,evidence}], tradeoffs: [{text,evidence}], recommendations: string[], answer?: string|null}`. Фронтенд сохраняет evidence и показывает его под выводами. Тип Analysis ниже — нормализованная модель UI, не wire-формат AI.
+
+Переданный объект не является доверенным расчётом — сервер должен использовать scenarioId для получения сохранённого результата или заново пересчитать decisions. Если интегратор выберет вход по scenarioId/decisions, адаптируем api.analyze после согласования. Текущий адаптер не меняет чужой код.
 
 ## Форматы
 
 ```ts
-type Indicators = { T1:number;T2:number;E1:number;E2:number;S1:number;S2:number;B1:number;B2:number;C1:number;C2:number };
+type Indicators = {
+  T1: number;
+  T2: number;
+  E1: number;
+  E2: number;
+  S1: number;
+  S2: number;
+  B1: number;
+  B2: number;
+  C1: number;
+  C2: number;
+};
 type District = {
-  id: 'esil'|'almaty'|'saryarka'|'baikonur'|'nura';
-  name: string; populationShare: number; profile: string;
-  indicators: Indicators; score: number;
+  id: 'esil' | 'almaty' | 'saryarka' | 'baikonur' | 'nura';
+  name: string;
+  populationShare: number;
+  profile: string;
+  indicators: Indicators;
+  score: number;
 };
 type Measure = {
-  id: string; name: string;
-  category: 'transport'|'ecology'|'social'|'safety'|'services';
-  scope: 'city'|'district'; cost: number; lag: number;
+  id: string;
+  name: string;
+  category: 'transport' | 'ecology' | 'social' | 'safety' | 'services';
+  scope: 'city' | 'district';
+  cost: number;
+  lag: number;
   effects: Partial<Indicators>; // полные эффекты ДО учёта лага, включая отрицательные
-  description: string; notes: string[]; // описания несовместимости и синергии
+  description: string;
+  notes: string[]; // описания несовместимости и синергии
 };
 type Snapshot = {
-  score: number; cityAverage: number; weakestDistrictId: District['id'];
-  criticalCount: number; districts: District[]; // все 5 районов
+  score: number;
+  cityAverage: number;
+  weakestDistrictId: District['id'];
+  criticalCount: number;
+  districts: District[]; // все 5 районов
 };
 type Simulation = {
   modelVersion: string;
   scenarioId?: string;
-  source: 'backend'|'fixture';
+  source: 'backend' | 'fixture';
   decisions: Decision[];
   validation: {
-    status: 'valid'|'invalid'|'unverified'; // unverified используется только mock
-    errors: {code:string;message:string;measureIds?:string[]}[];
+    status: 'valid' | 'invalid' | 'unverified'; // unverified используется только mock
+    errors: { code: string; message: string; measureIds?: string[] }[];
   };
-  budget: {total:number;spent:number;remaining:number};
+  budget: { total: number; spent: number; remaining: number };
   before: Snapshot;
-  after: Snapshot|null; // null при невалидном наборе, никакого нулевого fake Score
-  scoreDelta: number|null;
-  synergies: {measureIds:string[];districtId:District['id'];description:string}[];
-  contributions: {measureId:string;districtId?:District['id'];scoreImpact:number}[];
+  after: Snapshot | null; // null при невалидном наборе, никакого нулевого fake Score
+  scoreDelta: number | null;
+  synergies: { measureIds: string[]; districtId: District['id']; description: string }[];
+  contributions: { measureId: string; districtId?: District['id']; scoreImpact: number }[];
   notice?: string;
 };
 type Analysis = {
-  source:'ai'|'template'; // template только при явном fallback
-  summary:string;strengths:string[];risks:string[];
-  tradeoffs:string[];recommendations:string[];
+  source: 'ai' | 'template'; // template только при явном fallback
+  summary: string;
+  strengths: string[];
+  risks: string[];
+  tradeoffs: string[];
+  recommendations: string[];
 };
 type Recommendation = {
-  found:boolean;explanation:string;
-  decisions?:Decision[];result?:Simulation;
+  found: boolean;
+  explanation: string;
+  decisions?: Decision[];
+  result?: Simulation;
 };
 ```
 
@@ -88,11 +116,13 @@ M7 nura + M8 nura + M10 nura + M12 city + M5 saryarka. Стоимость 95. И
 ## Переключение на backend
 
 В `frontend/.env.local`:
+
 ```dotenv
 NEXT_PUBLIC_API_MODE=live
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 NEXT_PUBLIC_ENABLE_RECOMMENDATIONS=false
 ```
+
 Перезапустить dev-сервер; для production выполнить новую сборку. Разрешить backend CORS для используемого origin фронтенда (по умолчанию http://127.0.0.1:3000; localhost — отдельный origin). API-ключи AI в браузер не передаются, NEXT_PUBLIC для секретов запрещён.
 
 Если бекенд на другом origin HTTPS, настроить разрешённый origin и TLS. Пустой base URL подходит для same-origin reverse proxy. Сам Next.js здесь не содержит backend API routes.
@@ -111,3 +141,5 @@ Frontend владеет только `frontend/**`. Backend-интегратор
 6. Контрольный пример 95 → 56.54307; AI не меняет числа.
 7. AI 503, HTTP 422, неверный JSON и таймаут показываются корректно.
 8. /api/recommend включается только после согласования схемы и расчётной проверки вариантов.
+
+23.09.2026: устаревший корневой AGENTS.md очищен в main @ 573ee0b; AI-модуль возвращён к городскому кейсу в feature/ai @ 03cd8a0. Фронтенд учитывает текущую городскую схему AI.
