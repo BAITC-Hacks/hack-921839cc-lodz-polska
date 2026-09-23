@@ -2,122 +2,193 @@
 
 ## Track
 
-Education
+Special Track: Astana Innovations
+
+## Project
+
+AI system for automatic meeting minutes and task tracking.
+
+The prototype should support the core scenario defined by the Astana Innovations case:
+
+1. Record or receive meeting audio/video.
+2. Transcribe participant speech.
+3. Distinguish speakers (speaker diarization).
+4. Detect assignments from the transcript and extract who is responsible, what must be done, and the deadline.
+5. Generate a concise meeting summary and protocol.
+6. Allow the final protocol to be exported to PDF/DOCX.
+7. Support reminders and task-status tracking when implemented.
+
+The required language scope is Russian, Kazakh, and mixed Russian/Kazakh ("shala-Kazakh").
+
+## Privacy and deployment constraints
+
+This project handles potentially sensitive meeting information.
+
+- The solution must be capable of running in a closed/on-premise environment.
+- Do not send meeting audio, transcripts, or sensitive data to external cloud AI APIs.
+- Prefer local/self-hosted speech recognition, diarization, LLM/NLP, and supporting models.
+- Never commit meeting recordings, transcripts containing real sensitive information, credentials, tokens, or secrets.
+- Real recordings used for demos must be anonymized.
+- Synthetic or simulated meeting recordings are acceptable for development and testing.
 
 ## Project structure
 
-Use this repository structure unless the existing code requires otherwise:
+Use this repository structure unless the existing implementation requires otherwise:
 
-- `frontend/` — user interface for students, teachers, and admins.
-- `backend/` — API, authentication, business logic, and database access.
-- `ml/` — optional AI/ML features such as recommendations, tutoring, grading assistance, or analytics.
-- `docs/` — API contracts, architecture notes, product requirements, and setup documentation.
-- `.env` — local environment variables only. Never commit secrets.
-- `docker-compose.yml` — local multi-service setup when Docker is used.
+- `frontend/` — meeting UI, transcripts, summaries, assignments, status dashboard, and exports.
+- `backend/` — API, orchestration, meeting/task logic, persistence, authentication, and export services.
+- `ml/` — local speech-to-text, diarization, assignment extraction, summarization, and other AI pipelines.
+- `docs/` — API contract, architecture, setup, model documentation, and demo instructions.
+- `tests/` — automated and integration tests where appropriate.
+- `.env` — local configuration only; never commit secrets.
+- `docker-compose.yml` — reproducible local/on-premise service setup.
 
 ## General rules
 
-- Read the existing code and documentation before making changes.
+- Read the existing code, README, this file, and relevant documentation before making changes.
 - Keep changes focused on the requested task.
-- Follow the existing project structure and coding conventions.
+- Follow existing project conventions before introducing new ones.
 - Do not remove or rewrite working code unless necessary.
 - Reuse existing components and utilities before creating duplicates.
-- Update documentation when behavior, setup, or API contracts change.
-- Never commit API keys, passwords, access tokens, private keys, or student personal data.
-
-## Education product rules
-
-- Design for clear and simple student and teacher workflows.
-- Keep learning content readable and accessible.
-- Do not invent grades, attendance, progress, or student records.
-- Treat student and teacher data as sensitive.
-- AI-generated educational content should be clearly distinguishable when relevant.
-- For quizzes, grading, recommendations, or tutoring features, keep the logic explainable and testable.
+- Keep the prototype reproducible for hackathon judging.
+- Update README and documentation whenever setup, architecture, commands, APIs, or user-visible behavior change.
+- Never commit secrets or sensitive meeting data.
 
 ## Frontend
 
-If a `frontend/` directory exists, keep frontend work inside it.
+If a `frontend/` directory exists, keep frontend-specific work inside it.
 
 Recommended structure:
 
-- `src/api/` — API client functions. Base URLs must come from environment variables.
+- `src/api/` — API client functions; base URLs come from environment variables.
 - `src/components/` — reusable UI components.
-- `src/pages/` — application screens/pages.
-- `src/features/` — larger education features such as courses, lessons, quizzes, assignments, or progress.
-- `src/hooks/` — reusable frontend hooks.
+- `src/pages/` — application screens.
+- `src/features/meetings/` — recording/upload, meeting details, transcript, and summary.
+- `src/features/tasks/` — extracted assignments, deadlines, responsible people, and statuses.
+- `src/hooks/` — reusable hooks.
 - `src/utils/` — shared frontend utilities.
 
 Rules:
 
-- Do not modify `backend/` or `ml/` when the task is frontend-only.
-- Keep components small and reusable.
-- Handle loading, empty, success, and error states.
+- Do not modify `backend/` or `ml/` for frontend-only tasks unless the interface must change.
+- Handle loading, processing, empty, success, and error states.
+- Clearly show speaker identity, timestamps where available, extracted assignments, responsible person, and deadline.
 - Do not hardcode backend URLs or secrets.
-- Requests must follow the API contract in `docs/API_CONTRACT.md` if that file exists.
+- Requests must match `docs/API_CONTRACT.md` if it exists.
 
 ## Backend
 
-If a `backend/` directory exists, keep backend work inside it.
+If a `backend/` directory exists, keep backend-specific work inside it.
 
 Recommended responsibilities:
 
-- API endpoints and validation.
-- Authentication and authorization.
-- Courses, lessons, assignments, quizzes, submissions, progress, and user roles.
-- Database access and migrations.
-- Integration with ML services when required.
+- Meeting creation and audio/video upload.
+- Processing-job orchestration and status.
+- Transcript and speaker-segment storage.
+- Assignment extraction and task-status management.
+- Meeting summary/protocol generation.
+- PDF/DOCX export.
+- Authentication/authorization when required.
+- Interfaces to local ML services.
 
 Rules:
 
-- Do not modify `frontend/` or `ml/` when the task is backend-only.
 - Validate all client input.
-- Enforce authorization on protected education data.
-- Never expose secrets or sensitive student information in logs or API responses.
+- Do not expose sensitive meeting data in logs.
+- Keep long-running ML processing outside request handlers when practical.
+- Use explicit processing states and useful error messages.
 - Keep API changes synchronized with `docs/API_CONTRACT.md`.
 
 ## ML / AI
 
-If an `ml/` directory exists, use it for AI and machine-learning functionality.
+The `ml/` area owns the local AI pipeline.
 
-Examples:
+Core capabilities:
 
-- Personalized learning recommendations.
-- Educational content generation.
-- Question generation.
-- Tutoring or explanation features.
-- Learning analytics.
+- Speech-to-text for Russian.
+- Speech-to-text for Kazakh.
+- Mixed Russian/Kazakh ("shala-Kazakh") speech handling.
+- Speaker diarization.
+- Assignment extraction: responsible person, task/action, and deadline.
+- Meeting summarization.
 
 Rules:
 
-- Keep ML code separate from API and UI code.
-- Document model inputs and outputs.
-- Do not silently make high-impact education decisions for users.
-- Backend code should communicate with ML through a clear interface/API.
-- Include a non-ML fallback when practical.
+- Models used on meeting content must support local/self-hosted execution.
+- Keep model loading and inference separate from API/UI code.
+- Document model names, versions, hardware requirements, inputs, and outputs.
+- Preserve timestamps and speaker information through the pipeline when available.
+- Assignment extraction should return structured, testable output rather than only free-form prose.
+- Do not fabricate a responsible person or deadline when the transcript does not provide enough evidence; represent missing/uncertain fields explicitly.
+- Keep intermediate formats stable and documented.
+- Provide deterministic fixtures or sample recordings/transcripts for testing where practical.
 
 ## API sync
 
-Before writing or changing code that communicates between frontend, backend, or ML services, read `docs/API_CONTRACT.md` first if it exists.
+Before changing communication between frontend, backend, and ML services, read `docs/API_CONTRACT.md` first if it exists.
 
-The API contract is the source of truth for:
+The contract is the source of truth for:
 
-- Endpoint paths.
-- HTTP methods.
-- Request fields.
-- Response fields.
+- Endpoint paths and methods.
+- Request and response schemas.
+- Processing states.
+- Transcript/speaker structures.
+- Assignment fields.
+- Summary/protocol fields.
+- Export endpoints.
 - Error formats.
 - Authentication requirements.
 
-If the needed contract is missing or ambiguous, update or clarify the contract before implementing incompatible assumptions.
+If a required contract is missing or ambiguous, define or update it before implementing incompatible assumptions.
+
+## Hackathon priorities
+
+Prioritize a complete, demonstrable end-to-end workflow over unnecessary breadth.
+
+The critical demo path is:
+
+audio/video -> local transcription -> diarization -> structured assignments -> meeting summary/protocol -> PDF/DOCX export.
+
+After the mandatory flow works reliably, optional enhancements can include:
+
+- Assignment status dashboard (in progress / overdue / completed).
+- Deadline reminders.
+- Automatic distribution of protocol excerpts to responsible people.
+- Assignment urgency/category classification.
+- Voice identification.
+- Electronic document-management-system integration.
+
+Do not sacrifice the mandatory workflow for optional features.
 
 ## Validation
 
 Before considering a change complete:
 
-1. Run the available tests, linting, type checks, or build commands.
-2. Verify that the changed functionality works as expected.
-3. Check that frontend/backend/ML interfaces still match.
-4. Report any checks that could not be run and why.
+1. Run available tests, linting, type checks, and builds.
+2. Verify the affected user flow.
+3. For ML changes, test against Russian, Kazakh, and mixed-language samples where relevant.
+4. Verify frontend/backend/ML schemas still match.
+5. Verify the project can run without sending meeting content to prohibited external cloud AI services.
+6. Report checks that could not be run and why.
+
+## README and reproducibility
+
+Keep `README.md` sufficient for a judge or new developer to understand and run the prototype.
+
+It should document:
+
+- What problem the project solves.
+- Architecture and major components.
+- Technology/model choices.
+- Prerequisites.
+- Environment configuration.
+- Exact startup commands.
+- How to run the main demo scenario.
+- Expected inputs and outputs.
+- Known limitations.
+- Local/on-premise privacy approach.
+
+Prefer a reproducible one-command or minimal-command startup where practical.
 
 ## Git
 
