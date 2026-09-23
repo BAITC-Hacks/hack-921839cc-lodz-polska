@@ -52,7 +52,7 @@ def test_provider_configuration_and_bounded_timeout(monkeypatch):
         "app.main.importlib.import_module", lambda name: modules[name] if name in modules else original(name)
     )
     assert configured_generator() is expected
-    assert captured == {"timeout": 15.0, "max_retries": 0}
+    assert captured == {"timeout": 45.0, "max_retries": 0}
 
 
 def test_provider_configuration_failure_keeps_backend_running(monkeypatch, caplog):

@@ -111,6 +111,34 @@ def test_report_carries_verified_numbers(catalog, example, provider_reply):
         assert len(report["districts"]) == 5 and report["markdown"]
 
 
+def test_real_sdk_timeout_has_one_attempt_and_preserves_calculations(monkeypatch, catalog, example, caplog):
+    sdk = pytest.importorskip("openai", reason="Install requirements-ai.txt for the SDK boundary check")
+    httpx = pytest.importorskip("httpx2")
+    from app.main import configured_generator
+
+    attempts = []
+
+    def timeout(request):
+        attempts.append(request)
+        raise httpx.ReadTimeout("private-provider-detail", request=request)
+
+    sdk_client = sdk.OpenAI
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key-never-sent")
+    monkeypatch.setattr("app.main.load_dotenv", lambda *_args, **_kwargs: None)
+    with httpx.Client(transport=httpx.MockTransport(timeout)) as transport:
+        monkeypatch.setattr(sdk, "OpenAI", lambda **kwargs: sdk_client(http_client=transport, **kwargs))
+        with TestClient(create_app(catalog=catalog, ai_generator=configured_generator())) as client:
+            payload = {"decisions": [d.model_dump(by_alias=True) for d in example]}
+            response = client.post("/api/explain", json=payload)
+            assert response.status_code == 503
+            assert response.json()["code"] == "AI_UNAVAILABLE"
+            assert "private-provider-detail" not in response.text + caplog.text
+            result = client.post("/api/scenario/finalize", json=payload)
+            assert result.status_code == 200 and result.json()["score"] == 56.54307
+    assert len(attempts) == 1
+    assert attempts[0].extensions["timeout"]["read"] == 45.0
+
+
 def test_current_frontend_request_and_response(catalog, provider_reply):
     path = os.getenv("AKIM_FRONTEND_REQUEST")
     if not path:

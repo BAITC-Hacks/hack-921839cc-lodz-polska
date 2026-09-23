@@ -24,8 +24,9 @@ def configured_generator() -> Generator | None:
     try:
         provider = importlib.import_module("app.ai.openai_provider")
         sdk = importlib.import_module("openai")
-        # The provider stays AI-owned; the integrator sets an explicit timeout/retry budget.
-        return provider.create_openai_json_generator(client=sdk.OpenAI(timeout=15.0, max_retries=0))
+        # AI can legitimately need more than 15s, especially on the first schema request.
+        # The frontend allows 60s for AI; keep SDK retries off to avoid multiplying waits.
+        return provider.create_openai_json_generator(client=sdk.OpenAI(timeout=45.0, max_retries=0))
     except Exception as exc:
         logger.warning("AI module unavailable (%s); simulation remains active", type(exc).__name__)
         return None
