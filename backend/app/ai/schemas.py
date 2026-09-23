@@ -1,16 +1,11 @@
-"""Validated input and output contracts for the AI analyst.
-
-The input contains simulation results only. This package does not accept or
-calculate raw policy effects, budgets, district scores, or the official score.
-"""
+"""Validated contracts for AI analysis and advisory endpoints."""
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StrictModel(BaseModel):
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class BudgetSummary(StrictModel):
@@ -81,6 +76,43 @@ class AnalysisResponse(StrictModel):
     answer: str | None = Field(...)
 
 
+class AdviceDistrict(StrictModel):
+    district_id: str
+    district_name: str
+    indicators: dict[str, float]
+
+
+class AvailableMeasure(StrictModel):
+    measure_id: str
+    name: str
+    category: str
+    scope: Literal["district", "city"]
+    cost: float
+    lag_quarters: int
+    # Full organizer effects, before lag. The AI must not recompute outcomes.
+    effects: dict[str, float]
+
+
+class AdviceRequest(StrictModel):
+    selected_decisions: list[DecisionSummary]
+    budget_remaining: float
+    districts: list[AdviceDistrict]
+    available_measures: list[AvailableMeasure]
+    question: str | None = Field(default=None, max_length=1000)
+
+
+class AdviceSuggestion(StrictModel):
+    measure_id: str
+    # Required-but-nullable: district measures name a district; city measures use null.
+    district_id: str | None = Field(...)
+
+
+class AdviceResponse(StrictModel):
+    priority: str
+    reason: str
+    suggestions: list[AdviceSuggestion] = Field(default_factory=list, max_length=3)
+
+
 class ExecutiveBrief(StrictModel):
     title: str
     score_before: float
@@ -95,3 +127,4 @@ class ExecutiveBrief(StrictModel):
     equity: list[Finding]
     recommendations: list[str]
     markdown: str
+
