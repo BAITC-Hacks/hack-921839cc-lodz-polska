@@ -17,15 +17,22 @@ contract, are:
 - `POST /api/report/executive-brief`: body contains a `ScenarioSnapshot` and
   validated `AnalysisResponse`; response `ExecutiveBrief`.
 
-`create_ai_router(generate_json)` and `create_report_router()` expose FastAPI
-routers for these paths. The application entry point should include both after
-the backend owner confirms the shared contract. The routers are not mounted
-automatically because the repository currently has no application entry point.
+`create_ai_router()` and `create_report_router()` expose FastAPI routers.
+Mount them from the application entry point with `app.include_router(...)`
+after the backend owner confirms the shared contract. The repository currently
+has no application entry point, so they are not mounted automatically.
 
-`analyze_scenario(request, generate_json)` accepts an injected provider
-function and validates its structured result. This keeps credentials and vendor
-SDK choices outside this module. The provider must receive only the completed
-simulation result, never raw decisions for recalculation.
+## Model provider
+
+Install the `openai` Python package and set `OPENAI_API_KEY` in the
+server environment. Never commit the key. `OPENAI_MODEL` is optional; it
+defaults to `gpt-6-astra`. `create_ai_router()` uses this provider by default;
+pass a `generate_json` callable to inject another configured provider.
+
+The provider uses the Responses API with a Pydantic structured output model.
+The prompt and input contain only the completed simulation result and optional
+analysis question. The model explains results; it never recalculates scores or
+policy effects.
 
 `build_executive_brief(scenario, analysis)` returns structured fields and
 Markdown suitable for a report preview or export. It carries engine numbers
